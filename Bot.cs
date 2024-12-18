@@ -1,58 +1,95 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
+using System.Reflection;
 using System.Threading.Tasks;
 
-namespace LanguageHelperApp
+public class Bot
 {
-    public class Bot
+    private readonly DiscordSocketClient _client;
+    private readonly CommandService _commands;
+    private readonly IConfiguration _configuration;
+    private readonly IServiceProvider _services;
+
+    public Bot(IConfiguration configuration)
     {
-        private readonly IConfiguration _configuration;
-        private readonly DiscordSocketClient _client;
-        private readonly HttpClient _httpClient;
+        _configuration = configuration;
+        _client = new DiscordSocketClient();
+        _commands = new CommandService();
 
-        public Bot(IConfiguration configuration)
+        // Palveluntarjoaja
+        _services = ConfigureServices();
+
+        // Alustetaan tapahtumat
+        _client.Log += LogAsync;
+        _client.MessageReceived += HandleCommandAsync;
+    }
+
+    public async Task StartAsync()
+    {
+        // Haetaan bot-token
+        string token = _configuration["DiscordBot:Token"];
+        if (string.IsNullOrEmpty(token))
         {
-            _configuration = configuration;
-            _client = new DiscordSocketClient();
-            _httpClient = new HttpClient();
+            Console.WriteLine("Token puuttuu! Tarkista appsettings.json.");
+            return;
         }
 
-        public async Task StartAsync()
+        // Käynnistetään botti
+        await _client.LoginAsync(TokenType.Bot, token);
+        await _client.StartAsync();
+
+        // Rekisteröidään komennot
+        await RegisterCommandsAsync();
+
+        // Estetään ohjelman sulkeutuminen
+        await Task.Delay(-1);
+    }
+
+    private Task LogAsync(LogMessage log)
+    {
+        Console.WriteLine(log);
+        return Task.CompletedTask;
+    }
+
+    private async Task RegisterCommandsAsync()
+    {
+        // Rekisteröidään komennot CommandsModule-luokasta
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+    }
+
+    private async Task HandleCommandAsync(SocketMessage messageParam)
+    {
+        // Varmistetaan, että viesti on käyttäjän viesti, ei botin
+        if (messageParam is not SocketUserMessage message) return;
+        if (message.Author.IsBot) return;
+
+        // Määritetään komennon konteksti
+        var context = new SocketCommandContext(_client, message);
+
+        int argPos = 0;
+        // Tarkistetaan, onko viesti komento (!-etuliitteellä)
+        if (message.HasCharPrefix('!', ref argPos))
         {
-            // Lataa Discord token ja Groq API-avaimen appsettings.json:sta
-            var discordToken = _configuration["DiscordBot:Token"];
-            var groqApiKey = _configuration["GroqApi:Key"];
-            var groqBaseUrl = _configuration["GroqApi:BaseUrl"];
-
-            // Botin yhteys Discordiin
-            _client.Log += LogAsync;
-            _client.Ready += ReadyAsync;
-
-            // Yhdistä Discordiin
-            await _client.LoginAsync(TokenType.Bot, discordToken);
-            await _client.StartAsync();
-
-            // Estä ohjelman sulkeutuminen
-            await Task.Delay(-1);
+            var result = await _commands.ExecuteAsync(context, argPos, _services);
+            if (!result.IsSuccess)
+            {
+                Console.WriteLine($"Komento epäonnistui: {result.ErrorReason}");
+            }
         }
+    }
 
-        private Task LogAsync(LogMessage log)
-        {
-            Console.WriteLine(log);
-            return Task.CompletedTask;
-        }
-
-        // Tämä tapahtuu, kun botti on valmis
-        private Task ReadyAsync()
-        {
-            Console.WriteLine("Botti on valmis!");
-            return Task.CompletedTask;
-        }
+    private IServiceProvider ConfigureServices()
+    {
+        // Rekisteröidään riippuvuudet
+        return new ServiceCollection()
+            .AddSingleton(_configuration)                     // Lisää asetukset
+            .AddSingleton(_client)                            // Lisää DiscordSocketClient
+            .AddSingleton(_commands)                          // Lisää CommandService
+            .AddSingleton<GroqAPI>()                       // Lisää GroqClient
+            .BuildServiceProvider();
     }
 }
