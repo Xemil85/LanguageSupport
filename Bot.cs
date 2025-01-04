@@ -59,7 +59,7 @@ public class Bot
         var simplifyCommand = new SlashCommandBuilder()
             .WithName("simplify")
             .WithDescription("Yksinkertaistaa annetun tekstin GroqCloud-rajapinnan avulla.")
-            .AddOption("text", ApplicationCommandOptionType.String, "Teksti, joka yksinkertaistetaan", isRequired: true);
+            .AddOption("text", ApplicationCommandOptionType.String, "Muunna teksti yksinkertaisempaan muotoon", isRequired: true);
 
         try
         {
