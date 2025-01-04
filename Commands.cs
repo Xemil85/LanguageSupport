@@ -1,4 +1,5 @@
 ﻿using Discord.Commands;
+using Discord.WebSocket;
 using System.Threading.Tasks;
 
 public class Commands : ModuleBase<SocketCommandContext>
@@ -10,20 +11,34 @@ public class Commands : ModuleBase<SocketCommandContext>
         _groqClient = groqClient;
     }
 
-    [Command("simplify")]
-    [Summary("Yksinkertaistaa annetun tekstin GroqCloud-rajapinnan avulla.")]
-    public async Task SimplifyAsync([Remainder] string text)
+    public async Task HandleSlashCommandAsync(SocketSlashCommand command)
     {
-        await ReplyAsync("Odota hetki, prosessoin viestiäsi...");
+        switch (command.CommandName)
+        {
+            case "simplify":
+                await HandleSimplifyCommand(command);
+                break;
+
+            default:
+                await command.RespondAsync("Tuntematon komento.");
+                break;
+        }
+    }
+
+    private async Task HandleSimplifyCommand(SocketSlashCommand command)
+    {
+        var text = command.Data.Options.First().Value.ToString();
+
+        await command.RespondAsync("Odota hetki, prosessoin viestiäsi...");
 
         try
         {
             var response = await _groqClient.GetChatResponseAsync(text);
-            await ReplyAsync($"Simplified: {response}");
+            await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Yksinkertaistettu: {response}");
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex)
         {
-            await ReplyAsync($"API-virhe: {ex.Message}");
+            await command.ModifyOriginalResponseAsync(msg => msg.Content = $"API-virhe: {ex.Message}");
         }
     }
 }

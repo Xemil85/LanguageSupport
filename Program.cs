@@ -2,6 +2,7 @@
 using Discord.WebSocket;
 using LanguageHelperApp;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 public class Program
 {
@@ -13,7 +14,12 @@ public class Program
             .AddJsonFile("appsettings.json")
             .Build();
 
-        var bot = new Bot(configuration);
+        var services = new ServiceCollection()
+            .AddSingleton<IConfiguration>(configuration)
+            .AddSingleton<Bot>()
+            .BuildServiceProvider();
+
+        var bot = services.GetRequiredService<Bot>();
 
         // Käynnistä Bot
         await bot.StartAsync();

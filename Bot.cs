@@ -10,22 +10,22 @@ using System.Threading.Tasks;
 public class Bot
 {
     private readonly DiscordSocketClient _client;
-    private readonly CommandService _commands;
     private readonly IConfiguration _configuration;
     private readonly IServiceProvider _services;
 
     public Bot(IConfiguration configuration)
     {
         _configuration = configuration;
-        _client = new DiscordSocketClient();
-        _commands = new CommandService();
+        _client = new DiscordSocketClient(new DiscordSocketConfig
+        {
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent
+        });
 
-        // Palveluntarjoaja
         _services = ConfigureServices();
 
-        // Alustetaan tapahtumat
         _client.Log += LogAsync;
-        _client.MessageReceived += HandleCommandAsync;
+        _client.Ready += ReadyAsync;
+        _client.SlashCommandExecuted += HandleSlashCommandAsync;
     }
 
     public async Task StartAsync()
@@ -42,9 +42,6 @@ public class Bot
         await _client.LoginAsync(TokenType.Bot, token);
         await _client.StartAsync();
 
-        // Rekisteröidään komennot
-        await RegisterCommandsAsync();
-
         // Estetään ohjelman sulkeutuminen
         await Task.Delay(-1);
     }
@@ -55,41 +52,41 @@ public class Bot
         return Task.CompletedTask;
     }
 
-    private async Task RegisterCommandsAsync()
+    private async Task ReadyAsync()
     {
-        // Rekisteröidään komennot CommandsModule-luokasta
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+        Console.WriteLine("Bot is ready!");
+
+        var simplifyCommand = new SlashCommandBuilder()
+            .WithName("simplify")
+            .WithDescription("Yksinkertaistaa annetun tekstin GroqCloud-rajapinnan avulla.")
+            .AddOption("text", ApplicationCommandOptionType.String, "Teksti, joka yksinkertaistetaan", isRequired: true);
+
+        try
+        {
+            await _client.CreateGlobalApplicationCommandAsync(simplifyCommand.Build());
+            Console.WriteLine("Slash-komennot rekisteröity onnistuneesti!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Virhe rekisteröinnissä: {ex.Message}");
+        }
     }
 
-    private async Task HandleCommandAsync(SocketMessage messageParam)
+    private async Task HandleSlashCommandAsync(SocketSlashCommand command)
     {
-        // Varmistetaan, että viesti on käyttäjän viesti, ei botin
-        if (messageParam is not SocketUserMessage message) return;
-        if (message.Author.IsBot) return;
+        using var scope = _services.CreateScope();
+        var commandsHandler = scope.ServiceProvider.GetRequiredService<Commands>();
 
-        // Määritetään komennon konteksti
-        var context = new SocketCommandContext(_client, message);
-
-        int argPos = 0;
-        // Tarkistetaan, onko viesti komento (!-etuliitteellä)
-        if (message.HasCharPrefix('!', ref argPos))
-        {
-            var result = await _commands.ExecuteAsync(context, argPos, _services);
-            if (!result.IsSuccess)
-            {
-                Console.WriteLine($"Komento epäonnistui: {result.ErrorReason}");
-            }
-        }
+        await commandsHandler.HandleSlashCommandAsync(command);
     }
 
     private IServiceProvider ConfigureServices()
     {
-        // Rekisteröidään riippuvuudet
         return new ServiceCollection()
-            .AddSingleton(_configuration)                     // Lisää asetukset
-            .AddSingleton(_client)                            // Lisää DiscordSocketClient
-            .AddSingleton(_commands)                          // Lisää CommandService
-            .AddSingleton<GroqAPI>()                       // Lisää GroqClient
+            .AddSingleton(_configuration)
+            .AddSingleton(_client)
+            .AddSingleton<GroqAPI>()
+            .AddSingleton<Commands>()
             .BuildServiceProvider();
     }
 }

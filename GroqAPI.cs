@@ -22,10 +22,10 @@ public class GroqAPI
     public async Task<string> GetChatResponseAsync(string userInput)
     {
         var url = _baseUrl;
-        var prompt = $"Muunna lause yksinkertaisempaan muotoon: {userInput} (in Finnish)";
+        var prompt = $"Muunna lause yksinkertaisempaan muotoon: {userInput}";
         var payload = new
         {
-            model = "gemma-7b-it", // Malli
+            model = "gemma2-9b-it", // Malli
             messages = new[]
             {
                 new { role = "user", content = prompt } // Viestin sisältö
