@@ -1,6 +1,7 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 public class Commands : ModuleBase<SocketCommandContext>
 {
@@ -19,6 +20,10 @@ public class Commands : ModuleBase<SocketCommandContext>
                 await HandleSimplifyCommand(command);
                 break;
 
+            case "word":
+                await HandleWordCommand(command);
+                break;
+
             default:
                 await command.RespondAsync("Tuntematon komento.");
                 break;
@@ -28,7 +33,6 @@ public class Commands : ModuleBase<SocketCommandContext>
     private async Task HandleSimplifyCommand(SocketSlashCommand command)
     {
         var text = command.Data.Options.First().Value.ToString();
-
         await command.RespondAsync("Odota hetki, prosessoin viestiäsi...");
 
         try
@@ -37,6 +41,21 @@ public class Commands : ModuleBase<SocketCommandContext>
             await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Yksinkertaistettu: {response}");
         }
         catch (Exception ex)
+        {
+            await command.ModifyOriginalResponseAsync(msg => msg.Content = $"API-virhe: {ex.Message}");
+        }
+    }
+
+    private async Task HandleWordCommand(SocketSlashCommand command)
+    {
+        var word = command.Data.Options.First().Value.ToString();
+        await command.RespondAsync("Odota hetki, prosessoin viestiäsi...");
+
+        try
+        {
+            var response = await _groqClient.GetWordResponseAsync(word);
+            await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Sanan merkitys: {response}");
+        } catch (Exception ex)
         {
             await command.ModifyOriginalResponseAsync(msg => msg.Content = $"API-virhe: {ex.Message}");
         }

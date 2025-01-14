@@ -61,9 +61,15 @@ public class Bot
             .WithDescription("Yksinkertaistaa annetun tekstin GroqCloud-rajapinnan avulla.")
             .AddOption("text", ApplicationCommandOptionType.String, "Muunna teksti yksinkertaisempaan muotoon", isRequired: true);
 
+        var wordCommand = new SlashCommandBuilder()
+            .WithName("word")
+            .WithDescription("Kertoo annetun sanan merkityksen GroqCloud-rajapinnan avulla.")
+            .AddOption("word", ApplicationCommandOptionType.String, "Kerro sanan merkitys", isRequired: true);
+
         try
         {
             await _client.CreateGlobalApplicationCommandAsync(simplifyCommand.Build());
+            await _client.CreateGlobalApplicationCommandAsync(wordCommand.Build());
             Console.WriteLine("Slash-komennot rekisteröity onnistuneesti!");
         }
         catch (Exception ex)
