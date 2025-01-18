@@ -66,10 +66,25 @@ public class Bot
             .WithDescription("Kertoo annetun sanan merkityksen GroqCloud-rajapinnan avulla.")
             .AddOption("word", ApplicationCommandOptionType.String, "Kerro sanan merkitys", isRequired: true);
 
+        var imageCommand = new SlashCommandBuilder()
+            .WithName("image")
+            .WithDescription("Tulkitsee annetun kuvan sisällön GroqCloud-rajapinnan avulla.")
+            .AddOption(new SlashCommandOptionBuilder()
+                .WithName("image")
+                .WithDescription("Kuva galleriasta")
+                .WithType(ApplicationCommandOptionType.Attachment)
+                .WithRequired(false))
+            .AddOption(new SlashCommandOptionBuilder()
+                .WithName("url")
+                .WithDescription("Kuvan URL-osoite")
+                .WithType(ApplicationCommandOptionType.String)
+                .WithRequired(false));
+
         try
         {
             await _client.CreateGlobalApplicationCommandAsync(simplifyCommand.Build());
             await _client.CreateGlobalApplicationCommandAsync(wordCommand.Build());
+            await _client.CreateGlobalApplicationCommandAsync(imageCommand.Build());
             Console.WriteLine("Slash-komennot rekisteröity onnistuneesti!");
         }
         catch (Exception ex)
