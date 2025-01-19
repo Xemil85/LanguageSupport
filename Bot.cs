@@ -69,16 +69,7 @@ public class Bot
         var imageCommand = new SlashCommandBuilder()
             .WithName("image")
             .WithDescription("Tulkitsee annetun kuvan sisällön GroqCloud-rajapinnan avulla.")
-            .AddOption(new SlashCommandOptionBuilder()
-                .WithName("image")
-                .WithDescription("Kuva galleriasta")
-                .WithType(ApplicationCommandOptionType.Attachment)
-                .WithRequired(false))
-            .AddOption(new SlashCommandOptionBuilder()
-                .WithName("url")
-                .WithDescription("Kuvan URL-osoite")
-                .WithType(ApplicationCommandOptionType.String)
-                .WithRequired(false));
+            .AddOption("image", ApplicationCommandOptionType.Attachment, "Kerro kuvan sisältö ja tulkitse lyhyesti", isRequired: true);
 
         try
         {

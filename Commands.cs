@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using System.Text;
 using System.Threading.Tasks;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -94,53 +95,48 @@ public class Commands : ModuleBase<SocketCommandContext>
         try
         {
             var option = command.Data.Options.FirstOrDefault();
-            if (option == null)
+            if (option?.Value is not IAttachment attachment)
             {
                 await command.ModifyOriginalResponseAsync(msg =>
-                    msg.Content = "Ole hyvä ja liitä kuva tai anna kuvan URL-osoite.");
+                    msg.Content = "Ole hyvä ja liitä kuva käsittelyä varten.");
                 return;
             }
 
-            byte[] imageBytes;
-            string fileName;
-
-            if (option.Value is IAttachment attachment)
+            // Tarkista, että tiedosto on kuvatyyppiä
+            if (!attachment.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? true)
             {
-                if (!attachment.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? true)
-                {
-                    await command.ModifyOriginalResponseAsync(msg =>
-                        msg.Content = "Vain kuvatiedostot ovat sallittuja.");
-                    return;
-                }
-
-                fileName = attachment.Filename;
-                using var httpClient = new HttpClient();
-                imageBytes = await httpClient.GetByteArrayAsync(attachment.Url);
+                await command.ModifyOriginalResponseAsync(msg =>
+                    msg.Content = "Vain kuvatiedostot ovat sallittuja.");
+                return;
             }
 
-            else if (option.Value is string imageUrl)
-            {
-                if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) ||
-                    (uri.Scheme != "http" && uri.Scheme != "https"))
-                {
-                    await command.ModifyOriginalResponseAsync(msg =>
-                        msg.Content = "Antamasi URL-osoite ei ole kelvollinen. Varmista, että se alkaa 'http://' tai 'https://'.");
-                    return;
-                }
+            var fileName = attachment.Filename;
 
-                fileName = "image_from_url.jpg";
-                using var httpClient = new HttpClient();
-                imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
+            // Lataa kuvan data
+            using var httpClient = new HttpClient();
+            var imageBytes = await httpClient.GetByteArrayAsync(attachment.Url);
+
+            if (imageBytes == null || imageBytes.Length == 0)
+            {
+                await command.ModifyOriginalResponseAsync(msg =>
+                    msg.Content = "Kuvatiedoston lataaminen epäonnistui.");
+                return;
+            }
+
+            // Lähetä kuva API:lle analysoitavaksi
+            var response = await _groqClient.GetAnalyzeImageAsync(imageBytes, fileName);
+
+            // Tarkista, onko API-vastaus liian pitkä Discord-viestiksi
+            if (response.Length > 2000)
+            {
+                var stream = new MemoryStream(Encoding.UTF8.GetBytes(response));
+                await command.ModifyOriginalResponseAsync(msg =>
+                    msg.Attachments = new[] { new FileAttachment(stream, "analyysi.txt") });
             }
             else
             {
-                await command.ModifyOriginalResponseAsync(msg =>
-                    msg.Content = "Virheellinen syöte. Ole hyvä ja liitä kuva tai anna kuvan URL-osoite.");
-                return;
+                await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Kuvan tulkinta: {response}");
             }
-
-            var response = await _groqClient.GetAnalyzeImageAsync(imageBytes, fileName);
-            await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Kuvan tulkinta: {response}");
         }
         catch (Exception ex)
         {
