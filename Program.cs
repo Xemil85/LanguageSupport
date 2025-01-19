@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using LanguageHelperApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
