@@ -1,4 +1,4 @@
-# Language Helper Discord bot (Työn alla) 🚧
+# Language Support Discord bot (Työn alla) 🚧
 
 Discord botti, joka tarkoitus on olla apuvälinen henkilöille, joilla on kehityksellisiä kielihäiriöitä.
 
