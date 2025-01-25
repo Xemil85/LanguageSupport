@@ -2,7 +2,12 @@
 
 Discord botti, joka tarkoitus on olla apuvälinen henkilöille, joilla on kehityksellisiä kielihäiriöitä.
 
-Ominaisuuksiin kuuluu:
+# Ominaisuuksiin kuuluu:
 - Lauseet yksinkertaisempaan muotoon
 - Sanan merkitys
 - Kuvan tulkkaus
+
+# Tekniset tiedot:
+- C#
+- Discord .NET
+- Groqcloud API
