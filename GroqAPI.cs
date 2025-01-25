@@ -106,7 +106,7 @@ public class GroqAPI
                         new
                         {
                             type = "text",
-                            text = "Kerro mitä kuvassa on ja tulkitse sisältö lyhyesti."
+                            text = "Kerro mitä kuvassa on."
                         },
                         new
                         {

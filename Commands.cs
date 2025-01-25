@@ -30,7 +30,7 @@ public class Commands : ModuleBase<SocketCommandContext>
                 var option = command.Data.Options.FirstOrDefault();
                 if (option == null)
                 {
-                    await command.RespondAsync("Ole hyvä ja liitä kuva tai anna kuvan URL-osoite.");
+                    await command.RespondAsync("Ole hyvä ja liitä kuva.");
                     return;
                 }
 
@@ -39,14 +39,9 @@ public class Commands : ModuleBase<SocketCommandContext>
                     var attachment = option.Value as IAttachment;
                     await HandleImageCommand(command);
                 }
-                else if (option.Name == "url")
-                {
-                    var url = option.Value as string;
-                    await HandleImageCommand(command);
-                }
                 else
                 {
-                    await command.RespondAsync("Virheellinen syöte. Ole hyvä ja liitä kuva tai anna kuvan URL-osoite.");
+                    await command.RespondAsync("Virheellinen syöte. Ole hyvä ja liitä kuva.");
                 }
                 break;
 
@@ -103,10 +98,10 @@ public class Commands : ModuleBase<SocketCommandContext>
             }
 
             // Tarkista, että tiedosto on kuvatyyppiä
-            if (!attachment.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? true)
+            if (string.IsNullOrEmpty(attachment.ContentType) || !(attachment.ContentType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? true))
             {
                 await command.ModifyOriginalResponseAsync(msg =>
-                    msg.Content = "Vain kuvatiedostot ovat sallittuja.");
+                    msg.Content = "Virhe: Discord ei tunnistanut liitetiedostoa kuvana. Varmista, että käytät kuvatiedostoa eikä suoraan kopioitua kuvaa.");
                 return;
             }
 
@@ -119,23 +114,30 @@ public class Commands : ModuleBase<SocketCommandContext>
             if (imageBytes == null || imageBytes.Length == 0)
             {
                 await command.ModifyOriginalResponseAsync(msg =>
-                    msg.Content = "Kuvatiedoston lataaminen epäonnistui.");
+                    msg.Content = "Kuvatiedoston lataaminen epäonnistui. Varmista, että liitit kelvollisen kuvatiedoston.");
                 return;
             }
 
             // Lähetä kuva API:lle analysoitavaksi
             var response = await _groqClient.GetAnalyzeImageAsync(imageBytes, fileName);
+            Console.WriteLine(response);
 
             // Tarkista, onko API-vastaus liian pitkä Discord-viestiksi
-            if (response.Length > 2000)
+            if (response.Length <= 2000)
             {
-                var stream = new MemoryStream(Encoding.UTF8.GetBytes(response));
                 await command.ModifyOriginalResponseAsync(msg =>
-                    msg.Attachments = new[] { new FileAttachment(stream, "analyysi.txt") });
+                    msg.Content = $"Kuvan tulkinta: {response}");
             }
             else
             {
-                await command.ModifyOriginalResponseAsync(msg => msg.Content = $"Kuvan tulkinta: {response}");
+                var stream = new MemoryStream(Encoding.UTF8.GetBytes(response));
+                var analyseFileText = "analyysi.txt";
+
+                await command.ModifyOriginalResponseAsync(msg =>
+                {
+                    msg.Content = "Kuvan tulkinta on liian pitkä viestiksi, mutta se on tallennettu tiedostoksi.";
+                    msg.Attachments = new[] { new FileAttachment(stream, analyseFileText) };
+                });
             }
         }
         catch (Exception ex)
